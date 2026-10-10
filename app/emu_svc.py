@@ -64,7 +64,7 @@ class EmuService(BaseService):
     async def clone_repo(self, repo_url=None):
         """
         Clone the Adversary Emulation Library repository. You can use a specific url via
-        the `repo_url` parameter (eg. if you want to use a fork).
+        the `repo_url` parameter (e.g. if you want to use a fork).
         """
         if not repo_url:
             repo_url = 'https://github.com/center-for-threat-informed-defense/adversary_emulation_library'
@@ -73,6 +73,20 @@ class EmuService(BaseService):
             self.log.debug('cloning repo %s' % repo_url)
             check_call(['git', 'clone', '--depth', '1', repo_url, self.repo_dir], stdout=DEVNULL, stderr=STDOUT)
             self.log.debug('clone complete')
+
+        # If emu doesn't use rustyzipper yet, patch to avoid pyminizip CVE-2023-45853.
+        repo_path = Path(self.repo_dir)
+        for script in repo_path.rglob("crypt_executables.py"):
+            content = script.read_text()
+            if "import pyminizip" not in content:
+                continue
+            updated_content = content.replace(
+                "import pyminizip",
+                "from rustyzipper.compat import pyminizip",
+            )
+
+            script.write_text(updated_content)
+            self.log.warning("Patched pyminizip import to rustyzipper.pyminizip in %s", script)
 
     async def populate_data_directory(self, library_path=None):
         """
