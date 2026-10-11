@@ -75,18 +75,20 @@ class EmuService(BaseService):
             self.log.debug('clone complete')
 
         # If emu doesn't use rustyzipper yet, patch to avoid pyminizip CVE-2023-45853.
-        repo_path = Path(self.repo_dir)
-        for script in repo_path.rglob("crypt_executables.py"):
-            content = script.read_text()
-            if "import pyminizip" not in content:
-                continue
-            updated_content = content.replace(
-                "import pyminizip",
-                "from rustyzipper.compat import pyminizip",
-            )
-
-            script.write_text(updated_content)
-            self.log.warning("Patched pyminizip import to rustyzipper.pyminizip in %s", script)
+        check_call(
+            [
+                'find',
+                self.repo_dir,
+                '-path', '*/Resources/*tilities/crypt_executables.py',  # Utilities/utilities
+                '-type', 'f',
+                '-exec', 'sed', '-i',
+                r's/^\(    \)import pyminizip/\1from rustyzipper.compat import pyminizip/',
+                '{}', '+',
+            ],
+            stdout=DEVNULL,
+            stderr=STDOUT,
+        )
+        self.log.debug('Finished checking crypt_executables.py files for the pyminizip import.')
 
     async def populate_data_directory(self, library_path=None):
         """
